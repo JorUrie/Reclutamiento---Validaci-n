@@ -1,3 +1,5 @@
+import os
+os.system("requirements.txt")
 from matplotlib.patches import Patch
 import streamlit as st
 import pandas as pd
