@@ -976,7 +976,7 @@ if uploaded_file is not None:
                         bottom=bottom,
                         color=colors[j % len(colors)],
                         alpha=0.8,
-                        edgecolor="none",
+                        edgecolor="white",
                         linewidth=0.5,
                     )
 
@@ -1933,6 +1933,7 @@ if uploaded_file is not None:
 
                     resumen_df = pd.DataFrame(resumen_data)
                     st.table(resumen_df)
+                    show_plot(fig, f"Distribución por Edad para {estado_seleccionado}")
 
                     # Dividir en pestañas para diferentes tipos de análisis
                     tab_estado1, tab_estado2 = st.tabs(
@@ -2018,7 +2019,7 @@ if uploaded_file is not None:
                             ax.plot(xpos, ypos, zpos, color="gray", alpha=0.3)
 
                             plt.tight_layout()
-                            st.pyplot(fig)
+                            show_plot(fig, f"Distribuciones Generales para {estado_seleccionado}")
                         else:
                             st.warning("No hay datos de edad disponibles para mostrar el histograma.")
                     # ---------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2084,7 +2085,7 @@ if uploaded_file is not None:
                                 )
                                 ax.legend(title="Sexo")
                                 ax.grid(axis="y", linestyle="--", alpha=0.6)
-                                st.pyplot(fig)
+                                show_plot(fig, f"Análisis por Sexo en {estado_seleccionado}")
                             else:
                                 st.warning("No hay datos suficientes para mostrar la relación entre sexo y puesto de aplicación.")
                         else:
@@ -2108,7 +2109,7 @@ if uploaded_file is not None:
                                 ax = fig.add_subplot(111, projection="3d")
 
                                 # Configurar colores
-                                colors = ["#af50e5", "#259f48"]
+                                colors = ["#9b2247", "#1e5b4f"]
 
                                 # Posiciones y dimensiones de las barras
                                 xpos = np.arange(len(sexo_estado_civil_counts.columns))
@@ -2132,7 +2133,7 @@ if uploaded_file is not None:
                                             dz,
                                             color=color,
                                             alpha=0.8,
-                                            edgecolor="white",
+                                            edgecolor="none",
                                         )
 
                                         # Añadir etiquetas de valores
@@ -2195,7 +2196,7 @@ if uploaded_file is not None:
                                 ax.view_init(elev=10, azim=-85)
 
                                 plt.tight_layout()
-                                st.pyplot(fig)
+                                show_plot(fig, f"Relación entre Sexo y Estado Civil en {estado_seleccionado}")
                             else:
                                 st.warning("No hay datos suficientes para mostrar la relación entre sexo y estado civil.")
                         else:
@@ -2274,12 +2275,12 @@ if uploaded_file is not None:
                                 ax.view_init(elev=10, azim=-85)
 
                                 plt.tight_layout()
-                                st.pyplot(fig)
+                                show_plot(fig, f"Relación entre Sexo y Estado Civil en {estado_seleccionado}")
                             else:
                                 st.warning("No hay datos suficientes para mostrar la distribución de estado civil.")
 
                         # Comunidad indígena y LGBT (valores absolutos)
-                        st.subheader("Pertenencia a Comunidad Indígena o LGBT")
+                        st.subheader("Pertenencia a Comunidad Indígena o LGBTQ+")
                         for var, title, color in zip(
                             ["P2_ENCUESTA", "P3_ENCUESTA"],
                             ["Comunidad Indígena", "Comunidad LGBT"],
@@ -2357,7 +2358,7 @@ if uploaded_file is not None:
                                     ax.view_init(elev=10, azim=-85)
 
                                     plt.tight_layout()
-                                    st.pyplot(fig)
+                                    show_plot(fig, f"Distribución de {title} en {estado_seleccionado}")
                                 else:
                                     st.warning(f"No hay datos suficientes para mostrar la distribución de {title}.")
                             else:
@@ -2450,7 +2451,7 @@ if uploaded_file is not None:
                                 ax.view_init(elev=10, azim=-85)
 
                                 plt.tight_layout()
-                                st.pyplot(fig)
+                                show_plot(fig, f"Distribución de Antecedentes de Seguridad en {estado_seleccionado}")
                             else:
                                 st.warning("No hay datos suficientes para mostrar los antecedentes de seguridad.")
                         else:
