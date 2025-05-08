@@ -1,5 +1,3 @@
-import os
-os.system("requirements.txt")
 from matplotlib.patches import Patch
 import streamlit as st
 import pandas as pd
@@ -475,7 +473,7 @@ if uploaded_file is not None:
                 ha="center",
                 va="bottom",
                 color="black",
-                fontsize=4,
+                fontsize=3,
                 fontweight="bold",
                 rotation=0,
                 fontfamily="Noto Sans",
@@ -1155,7 +1153,7 @@ if uploaded_file is not None:
         st.subheader("Distribución de Masa Corporal por Sexo")
 
         # Masa corporal por sexo - Crear histogramas separados por sexo
-        for gender, color in zip(["MUJER", "HOMBRE"], ["#9b2247", "#1e5b4f"]):
+        for gender, color in zip(["MUJER", "HOMBRE"], ["#611232", "#002f2a"]):
             if gender in sexo.unique():
                 fig, ax = plt.subplots(figsize=(10, 6))
                 data_gender = masaCorporal[sexo == gender].dropna()
@@ -1512,7 +1510,7 @@ if uploaded_file is not None:
         ax.set_xticklabels( [
             col if len(col) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', col))
             for col in top_10_estadoResidencia.index
-            ], rotation=0, ha="center", fontsize=7, fontweight="bold", family="Noto Sans")
+            ], rotation=0, ha="center", fontsize=5, fontweight="bold", family="Noto Sans")
         ax.set_yticks([])
 
         # Ajustar aspecto para visualización 3D
@@ -1601,7 +1599,17 @@ if uploaded_file is not None:
         ax.set_ylabel("")
         ax.set_xlabel("")
         ax.set_xticks([i + 0.4 for i in xpos])
-        ax.set_xticklabels(encuesta_counts.index, rotation=0, ha="center", fontsize=5, fontweight="bold", family="Noto Sans")
+        ax.set_xticklabels(
+            [
+            label if len(label) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', label))
+            for label in encuesta_counts.index
+            ],
+            rotation=0,
+            ha="center",
+            fontsize=5,
+            fontweight="bold",
+            family="Noto Sans"
+        )
         ax.set_yticks([])
 
         # Ajustar aspecto para visualización 3D
@@ -1747,7 +1755,15 @@ if uploaded_file is not None:
         ax.set_xlabel("")
         ax.set_xticks([i + dx[i] / 2 for i in xpos])
         ax.set_xticklabels(
-            seguridadAntecedentes_counts.index, rotation=45, ha="center", fontsize=3, fontweight="bold", family="Noto Sans", wrap=True
+            [
+            "\n".join(re.findall(r".{1,12}(?:\s+|$)", label))
+            for label in seguridadAntecedentes_counts.index
+            ],
+            rotation=0,
+            ha="center",
+            fontsize=3,
+            fontweight="bold",
+            family="Noto Sans",
         )
         ax.set_yticks([])
 
@@ -1854,560 +1870,596 @@ if uploaded_file is not None:
     st.sidebar.write(f"Total de registros: {len(data)}")
 
     with tab4:
-        st.header("Análisis por Estado")
+            st.header("Análisis por Estado")
 
-        # Lista de estados disponibles
-        estados_disponibles = sorted(estadoResidencia.unique())
+            # Lista de estados disponibles
+            estados_disponibles = sorted(estadoResidencia.unique())
 
-        # Widget de selección de estado
-        estado_seleccionado = st.selectbox(
-            "Selecciona un estado para analizar:",
-            options=estados_disponibles,
-            index=0,
-            key="estado_analisis",
-        )
+            # Widget de selección de estado
+            estado_seleccionado = st.selectbox(
+                "Selecciona un estado para analizar:",
+                options=estados_disponibles,
+                index=0,
+                key="estado_analisis",
+            )
 
-        if estado_seleccionado:
-            # Filtrar datos por el estado seleccionado
-            data_estado = data[data["ESTADO_RESIDENCIA"] == estado_seleccionado]
+            if estado_seleccionado:
+                # Filtrar datos por el estado seleccionado
+                data_estado = data[data["ESTADO_RESIDENCIA"] == estado_seleccionado]
 
-            if not data_estado.empty:
-                st.success(
-                    f"Analizando datos para {estado_seleccionado} ({len(data_estado)} registros)"
-                )
-
-                # Mostrar estadísticas básicas
-                st.subheader(f"Resumen estadístico para {estado_seleccionado}")
-
-                # Crear tabla resumen (valores absolutos)
-                resumen_data = {
-                    "Métrica": [
-                        "Total registros",
-                        "Edad promedio",
-                        "Mujeres",
-                        "Hombres",
-                        "Escolaridad más común",
-                        "Talla de calzado más común",
-                    ],
-                    "Valor": [
-                        len(data_estado),
-                        f"{data_estado['edad'].mean():.1f} años",
-                        (
-                            f"{data_estado[data_estado['SEXO'] == 'MUJER'].shape[0]}"
-                            if "MUJER" in data_estado["SEXO"].unique()
-                            else "0"
-                        ),
-                        (
-                            f"{data_estado[data_estado['SEXO'] == 'HOMBRE'].shape[0]}"
-                            if "HOMBRE" in data_estado["SEXO"].unique()
-                            else "0"
-                        ),
-                        (
-                            data_estado["ESCOLARIDAD"].mode()[0]
-                            if not data_estado["ESCOLARIDAD"].mode().empty
-                            else "N/A"
-                        ),
-                        (
-                            data_estado["CALZADO_TALLA"].mode()[0]
-                            if not data_estado["CALZADO_TALLA"].mode().empty
-                            else "N/A"
-                        ),
-                    ],
-                }
-
-                resumen_df = pd.DataFrame(resumen_data)
-                st.table(resumen_df)
-
-                # Dividir en pestañas para diferentes tipos de análisis
-                tab_estado1, tab_estado2 = st.tabs(
-                    ["Distribuciones Generales", "Análisis por Sexo"]
-                )
-                # ---------------------------------------------------------------------------------------------------------------------------------------------------------
-                with tab_estado1:
-                    st.header(f"Distribuciones Generales para {estado_seleccionado}")
-
-                    # Calcular los parámetros del histograma
-                    min_age = max(18, int(data_estado["edad"].min())) - 1
-                    max_age = int(data_estado["edad"].max()) + 1
-                    age_bins = range(min_age, max_age + 1)
-                    hist_values, bin_edges = np.histogram(
-                        data_estado["edad"], bins=age_bins
+                if not data_estado.empty:
+                    st.success(
+                        f"Analizando datos para {estado_seleccionado} ({len(data_estado)} registros)"
                     )
 
-                    # Crear figura 3D
-                    fig = plt.figure(figsize=(14, 10))
-                    ax = fig.add_subplot(111, projection="3d")
+                    # Mostrar estadísticas básicas
+                    st.subheader(f"Resumen estadístico para {estado_seleccionado}")
 
-                    # Configurar posiciones y dimensiones
-                    xpos = np.arange(len(hist_values))
-                    ypos = np.zeros_like(xpos)
-                    zpos = np.zeros_like(xpos)
+                    # Crear tabla resumen (valores absolutos)
+                    resumen_data = {
+                        "Métrica": [
+                            "Total registros",
+                            "Edad promedio",
+                            "Mujeres",
+                            "Hombres",
+                            "Escolaridad más común",
+                            "Talla de calzado más común",
+                        ],
+                        "Valor": [
+                            len(data_estado),
+                            f"{data_estado['edad'].mean():.1f} años",
+                            (
+                                f"{data_estado[data_estado['SEXO'] == 'MUJER'].shape[0]}"
+                                if "MUJER" in data_estado["SEXO"].unique()
+                                else "0"
+                            ),
+                            (
+                                f"{data_estado[data_estado['SEXO'] == 'HOMBRE'].shape[0]}"
+                                if "HOMBRE" in data_estado["SEXO"].unique()
+                                else "0"
+                            ),
+                            (
+                                data_estado["ESCOLARIDAD"].mode()[0]
+                                if not data_estado["ESCOLARIDAD"].mode().empty
+                                else "N/A"
+                            ),
+                            (
+                                data_estado["CALZADO_TALLA"].mode()[0]
+                                if not data_estado["CALZADO_TALLA"].mode().empty
+                                else "N/A"
+                            ),
+                        ],
+                    }
 
-                    # Configurar dimensiones de las barras
-                    dx = 0.5 * np.ones_like(zpos)
-                    dy = 0.5 * np.ones_like(zpos)
-                    dz = hist_values
+                    resumen_df = pd.DataFrame(resumen_data)
+                    st.table(resumen_df)
 
-                    # Crear las barras 3D
-                    ax.bar3d(
-                        xpos,
-                        ypos,
-                        zpos,
-                        dx,
-                        dy,
-                        dz,
-                        color="#1e5b4f",
-                        alpha=0.8,
-                        edgecolor="none",
+                    # Dividir en pestañas para diferentes tipos de análisis
+                    tab_estado1, tab_estado2 = st.tabs(
+                        ["Distribuciones Generales", "Análisis por Sexo"]
                     )
+                    # ---------------------------------------------------------------------------------------------------------------------------------------------------------
+                    with tab_estado1:
+                        st.header(f"Distribuciones Generales para {estado_seleccionado}")
 
-                    # Añadir etiquetas
-                    ax.set_xticks(np.arange(len(hist_values)))
-                    ax.set_xticklabels(
-                        [f"{int(bin_edges[i])}" for i in range(len(hist_values))],
-                        rotation=0,
-                        ha="center",
-                        fontsize=6,
-                        fontweight="bold",
-                        fontfamily="Noto Sans"
-                    )
-                    ax.set_yticks([])  # No necesitamos etiquetas en el eje Y
-                    ax.set_zlabel("Cantidad de personas", labelpad=30, fontfamily="Noto Sans", fontsize=12)
-
-                    # Añadir título y ajustar vista
-                    ax.set_title(
-                        f"Distribución por Edad en {estado_seleccionado}", fontsize=14, fontfamily="Noto Sans"
-                    )
-                    ax.view_init(elev=0, azim=-89)  # Ángulo de visualización
-
-                    # Añadir etiquetas con valores en las barras
-                    for i in range(len(xpos)):
-                        if dz[i] > 0:  # Solo mostrar etiquetas para valores positivos
-                            ax.text(
-                                xpos[i] + dx[i] / 2,
-                                ypos[i] + dy[i] / 2,
-                                dz[i],
-                                f"{int(dz[i])}",
-                                ha="center",
-                                va="bottom",
-                                fontsize=9,
-                                color="black",
-                                bbox=dict(facecolor="white", alpha=0.5),
+                        # Calcular los parámetros del histograma
+                        min_age = max(18, int(data_estado["edad"].min())) - 1
+                        max_age = int(data_estado["edad"].max()) + 1
+                        age_bins = range(min_age, max_age + 1)
+                        
+                        # Asegurarse de que hay datos para el histograma
+                        if len(data_estado["edad"]) > 0:
+                            hist_values, bin_edges = np.histogram(
+                                data_estado["edad"], bins=age_bins
                             )
 
-                    # Añadir línea de fondo para mejor referencia
-                    ax.plot(xpos, ypos, zpos, color="gray", alpha=0.3)
+                            # Crear figura 3D
+                            fig = plt.figure(figsize=(14, 10))
+                            ax = fig.add_subplot(111, projection="3d")
 
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                # ---------------------------------------------------------------------------------------------------------------------------------------------------------
-                with tab_estado2:
-                    st.header(f"Análisis por Sexo en {estado_seleccionado}")
+                            # Configurar posiciones y dimensiones
+                            xpos = np.arange(len(hist_values))
+                            ypos = np.zeros_like(xpos)
+                            zpos = np.zeros_like(xpos)
 
-                    # Verificar qué sexos están presentes en el estado
-                    sexos_presentes = data_estado["SEXO"].unique()
+                            # Configurar dimensiones de las barras
+                            dx = 0.5 * np.ones_like(zpos)
+                            dy = 0.5 * np.ones_like(zpos)
+                            dz = hist_values
 
-                    # Sexo y puesto de aplicación (valores absolutos)
-                    if len(sexos_presentes) > 1:
-                        st.subheader("Relación entre Sexo y Puesto de Aplicación")
-                        sexo_puesto_counts = (
-                            data_estado.groupby(["SEXO", "P5_ENCUESTA"])
-                            .size()
-                            .unstack(fill_value=0)
-                        )
+                            # Crear las barras 3D
+                            ax.bar3d(
+                                xpos,
+                                ypos,
+                                zpos,
+                                dx,
+                                dy,
+                                dz,
+                                color="#1e5b4f",
+                                alpha=0.8,
+                                edgecolor="none",
+                            )
 
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        bar_width = 0.4
-                        x = np.arange(len(sexo_puesto_counts.columns))
+                            # Añadir etiquetas
+                            ax.set_xticks(np.arange(len(hist_values)))
+                            ax.set_xticklabels(
+                                [f"{int(bin_edges[i])}" for i in range(len(hist_values))],
+                                rotation=0,
+                                ha="center",
+                                fontsize=3,
+                                fontweight="bold",
+                                fontfamily="Noto Sans"
+                            )
+                            ax.set_yticks([])  # No necesitamos etiquetas en el eje Y
+                            ax.set_zlabel("Cantidad de personas", labelpad=30, fontfamily="Noto Sans", fontsize=12)
 
-                        for sexo, color, offset in zip(
-                            ["MUJER", "HOMBRE"],
-                            ["#9b2247", "#1e5b4f"],
-                            [-bar_width / 2, bar_width / 2],
-                        ):
-                            if sexo in sexo_puesto_counts.index:
-                                ax.bar(
-                                    x + offset,
-                                    sexo_puesto_counts.loc[sexo],
-                                    width=bar_width,
-                                    label=sexo,
-                                    color=color,
-                                    alpha=0.8,
-                                    edgecolor="white",
-                                )
-                                for i, puesto in enumerate(sexo_puesto_counts.columns):
+                            # Añadir título y ajustar vista
+                            ax.set_title(
+                                f"Distribución por Edad en {estado_seleccionado}", fontsize=14, fontfamily="Noto Sans"
+                            )
+                            ax.view_init(elev=0, azim=-89)  # Ángulo de visualización
+
+                            # Añadir etiquetas con valores en las barras
+                            for i in range(len(xpos)):
+                                if dz[i] > 0:  # Solo mostrar etiquetas para valores positivos
                                     ax.text(
-                                        x[i] + offset,
-                                        sexo_puesto_counts.loc[sexo, puesto] / 2,
-                                        f"{sexo_puesto_counts.loc[sexo, puesto]}",
+                                        xpos[i] + dx[i] / 2,
+                                        ypos[i] + dy[i] / 2,
+                                        dz[i],
+                                        f"{int(dz[i])}",
                                         ha="center",
-                                        va="center",
-                                        fontsize=8,
+                                        va="bottom",
+                                        fontsize=3,
+                                        color="black",
+                                        bbox=dict(facecolor="white", alpha=0.5),
+                                    )
+
+                            # Añadir línea de fondo para mejor referencia
+                            ax.plot(xpos, ypos, zpos, color="gray", alpha=0.3)
+
+                            plt.tight_layout()
+                            st.pyplot(fig)
+                        else:
+                            st.warning("No hay datos de edad disponibles para mostrar el histograma.")
+                    # ---------------------------------------------------------------------------------------------------------------------------------------------------------
+                    with tab_estado2:
+                        st.header(f"Análisis por Sexo en {estado_seleccionado}")
+
+                        # Verificar qué sexos están presentes en el estado
+                        sexos_presentes = data_estado["SEXO"].unique()
+
+                        # Sexo y puesto de aplicación (valores absolutos)
+                        if len(sexos_presentes) > 1:
+                            st.subheader("Relación entre Sexo y Puesto de Aplicación")
+                            sexo_puesto_counts = (
+                                data_estado.groupby(["SEXO", "P5_ENCUESTA"])
+                                .size()
+                                .unstack(fill_value=0)
+                            )
+
+                            # Asegurar que hay datos para mostrar
+                            if not sexo_puesto_counts.empty:
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                bar_width = 0.4
+                                x = np.arange(len(sexo_puesto_counts.columns))
+
+                                for sexo, color, offset in zip(
+                                    ["MUJER", "HOMBRE"],
+                                    ["#9b2247", "#1e5b4f"],
+                                    [-bar_width / 2, bar_width / 2],
+                                ):
+                                    if sexo in sexo_puesto_counts.index:
+                                        ax.bar(
+                                            x + offset,
+                                            sexo_puesto_counts.loc[sexo],
+                                            width=bar_width,
+                                            label=sexo,
+                                            color=color,
+                                            alpha=0.8,
+                                            edgecolor="white",
+                                        )
+                                        for i, puesto in enumerate(sexo_puesto_counts.columns):
+                                            ax.text(
+                                                x[i] + offset,
+                                                sexo_puesto_counts.loc[sexo, puesto] / 2,
+                                                f"{sexo_puesto_counts.loc[sexo, puesto]}",
+                                                ha="center",
+                                                va="center",
+                                                fontsize=8,
+                                                fontweight="bold",
+                                                fontfamily="Noto Sans",
+                                                color="black",
+                                                bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
+                                            )
+
+                                ax.set_title(
+                                    f"Relación entre Sexo y Puesto de Aplicación en {estado_seleccionado}"
+                                )
+                                ax.set_ylabel("Cantidad de personas", labelpad=30, fontfamily="Noto Sans", fontsize=12)
+                                ax.set_xlabel("")
+                                ax.set_xticks(x)
+                                ax.set_xticklabels([col if len(col) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', col))
+                                for col in sexo_puesto_counts.columns
+                                ], rotation=0, ha="center", fontsize=5 , fontweight="bold", family="Noto Sans"
+                                )
+                                ax.legend(title="Sexo")
+                                ax.grid(axis="y", linestyle="--", alpha=0.6)
+                                st.pyplot(fig)
+                            else:
+                                st.warning("No hay datos suficientes para mostrar la relación entre sexo y puesto de aplicación.")
+                        else:
+                            st.info(
+                                f"El estado {estado_seleccionado} solo tiene registros de {sexos_presentes[0] if len(sexos_presentes) > 0 else 'ningún sexo'}, no se puede mostrar comparación por sexo."
+                            )
+
+                        # Sexo y estado civil (valores absolutos)
+                        if len(sexos_presentes) > 1:
+                            st.subheader("Relación entre Sexo y Estado Civil")
+                            sexo_estado_civil_counts = (
+                                data_estado.groupby(["SEXO", "ESTADO_CIVIL"])
+                                .size()
+                                .unstack(fill_value=0)
+                            )
+
+                            # Asegurar que hay datos para mostrar
+                            if not sexo_estado_civil_counts.empty:
+                                # Crear figura 3D
+                                fig = plt.figure(figsize=(12, 8))
+                                ax = fig.add_subplot(111, projection="3d")
+
+                                # Configurar colores
+                                colors = ["#af50e5", "#259f48"]
+
+                                # Posiciones y dimensiones de las barras
+                                xpos = np.arange(len(sexo_estado_civil_counts.columns))
+                                ypos = np.zeros_like(xpos)
+                                zpos = np.zeros_like(xpos)
+                                dx = [0.4] * len(xpos)  # Ancho constante
+                                dy = [0.4] * len(xpos)  # Profundidad constante
+
+                                # Dibujar barras para cada sexo
+                                for sexo, color, offset in zip(
+                                    ["MUJER", "HOMBRE"], colors, [-0.2, 0.2]
+                                ):
+                                    if sexo in sexo_estado_civil_counts.index:
+                                        dz = sexo_estado_civil_counts.loc[sexo].values
+                                        ax.bar3d(
+                                            xpos + offset,
+                                            ypos,
+                                            zpos,
+                                            dx,
+                                            dy,
+                                            dz,
+                                            color=color,
+                                            alpha=0.8,
+                                            edgecolor="white",
+                                        )
+
+                                        # Añadir etiquetas de valores
+                                        for i, value in enumerate(dz):
+                                            if value > 0:
+                                                ax.text(
+                                                    xpos[i] + offset + dx[i] / 2,
+                                                    ypos[i] + dy[i] / 2,
+                                                    zpos[i] + value + 1,
+                                                    f"{int(value)}",
+                                                    ha="center",
+                                                    va="bottom",
+                                                    fontsize=8,
+                                                    fontweight="bold",
+                                                    fontfamily="Noto Sans",
+                                                    color="black",
+                                                    bbox=dict(
+                                                        facecolor="white",
+                                                        alpha=0.5,
+                                                        edgecolor="none",
+                                                    ),
+                                                )
+
+                                # Configuración del gráfico
+                                ax.set_title(
+                                    f"Relación entre Sexo y Estado Civil en {estado_seleccionado}",
+                                    fontweight="bold",
+                                    fontsize=14,
+                                    fontfamily="Noto Sans",
+                                )
+                                ax.set_zlabel(
+                                    "Cantidad de personas",
+                                    labelpad=30,
+                                    fontfamily="Noto Sans",
+                                    fontsize=12,
+                                )
+                                ax.set_ylabel("")
+                                ax.set_xlabel("")
+                                ax.set_xticks(xpos)
+                                ax.set_xticklabels(
+                                    sexo_estado_civil_counts.columns,
+                                    rotation=0,
+                                    ha="center",
+                                    fontsize=10,
+                                    fontweight="bold",
+                                    fontfamily="Noto Sans",
+                                )
+                                ax.set_yticks([])
+
+                                # Ajustar aspecto para visualización 3D
+                                ax.set_box_aspect([1, 0.6, 1])
+
+                                # Estilo de los planos
+                                for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+                                    axis.pane.set_edgecolor("black")
+                                    axis.pane.set_alpha(0.8)
+                                    axis.grid(True, linestyle="--", alpha=0.6, color="white")
+
+                                # Vista optimizada
+                                ax.view_init(elev=10, azim=-85)
+
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                            else:
+                                st.warning("No hay datos suficientes para mostrar la relación entre sexo y estado civil.")
+                        else:
+                            st.subheader("Distribución de Estado Civil")
+                            estado_civil_counts = data_estado["ESTADO_CIVIL"].value_counts()
+
+                            # Asegurar que hay datos para mostrar
+                            if not estado_civil_counts.empty:
+                                # Crear figura 3D
+                                fig = plt.figure(figsize=(12, 8))
+                                ax = fig.add_subplot(111, projection="3d")
+
+                                # Configurar colores
+                                colors = ["#1e5b4f", "#9b2247", "#e6d194"]
+
+                                # Posiciones y dimensiones de las barras
+                                xpos = range(len(estado_civil_counts))
+                                ypos = [0] * len(estado_civil_counts)
+                                zpos = [0] * len(estado_civil_counts)
+                                dx = [0.8] * len(estado_civil_counts)  # Ancho constante
+                                dy = [0.8] * len(estado_civil_counts)  # Profundidad constante
+                                dz = estado_civil_counts.values  # Altura variable
+
+                                # Crear barras 3D
+                                bars = ax.bar3d(
+                                    xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8
+                                )
+
+                                # Añadir etiquetas de valores absolutos encima de cada barra
+                                for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
+                                    ax.text(
+                                        x + dx[i] / 2,
+                                        y + dy[i] / 2,
+                                        z + max(dz) * 0.05,
+                                        f"{int(z)}",
+                                        ha="center",
+                                        va="bottom",
+                                        color="black",
+                                        fontsize=10,
                                         fontweight="bold",
                                         fontfamily="Noto Sans",
-                                        color="black",
                                         bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
                                     )
 
-                        ax.set_title(
-                            f"Relación entre Sexo y Puesto de Aplicación en {estado_seleccionado}"
-                        )
-                        ax.set_ylabel("Cantidad de personas", labelpad=30, fontfamily="Noto Sans", fontsize=12)
-                        ax.set_xlabel("")
-                        ax.set_xticks(x)
-                        ax.set_xticklabels([col if len(col) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', col))
-                        for col in sexo_puesto_counts.columns
-                        ], rotation=0, ha="center", fontsize=5 , fontweight="bold", family="Noto Sans"
-                        )
-                        ax.legend(title="Sexo")
-                        ax.grid(axis="y", linestyle="--", alpha=0.6)
-                        show_plot(fig, f"Análisis por Sexo en {estado_seleccionado}")
-
-                    else:
-                        st.info(
-                            f"El estado {estado_seleccionado} solo tiene registros de {sexos_presentes[0]}, no se puede mostrar comparación por sexo."
-                        )
-
-                    # Sexo y estado civil (valores absolutos)
-                    if len(sexos_presentes) < 1:
-                        st.subheader("Relación entre Sexo y Estado Civil")
-                        sexo_estado_civil_counts = (
-                            data_estado.groupby(["SEXO", "ESTADO_CIVIL"])
-                            .size()
-                            .unstack(fill_value=0)
-                        )
-
-                        # Crear figura 3D
-                        fig = plt.figure(figsize=(12, 8))
-                        ax = fig.add_subplot(111, projection="3d")
-
-                        # Configurar colores
-                        colors = ["#af50e5", "#259f48"]
-
-                        # Posiciones y dimensiones de las barras
-                        xpos = np.arange(len(sexo_estado_civil_counts.columns))
-                        ypos = np.zeros_like(xpos)
-                        zpos = np.zeros_like(xpos)
-                        dx = [0.4] * len(xpos)  # Ancho constante
-                        dy = [0.4] * len(xpos)  # Profundidad constante
-
-                        # Dibujar barras para cada sexo
-                        for sexo, color, offset in zip(
-                            ["MUJER", "HOMBRE"], colors, [-0.2, 0.2]
-                        ):
-                            if sexo in sexo_estado_civil_counts.index:
-                                dz = sexo_estado_civil_counts.loc[sexo].values
-                                ax.bar3d(
-                                    xpos + offset,
-                                    ypos,
-                                    zpos,
-                                    dx,
-                                    dy,
-                                    dz,
-                                    color=color,
-                                    alpha=0.8,
-                                    edgecolor="white",
+                                # Configuración del gráfico
+                                ax.set_title(
+                                    f"Distribución de Estado Civil en {estado_seleccionado}",
+                                    fontweight="bold",
+                                    fontsize=14,
+                                    fontfamily="Noto Sans",
                                 )
+                                ax.set_zlabel("Cantidad", labelpad=30, fontfamily="Noto Sans", fontsize=12)
+                                ax.set_ylabel("")
+                                ax.set_xlabel("")
+                                ax.set_xticks([i + dx[i] / 2 for i in xpos])
+                                ax.set_xticklabels(
+                                    estado_civil_counts.index,
+                                    rotation=0,
+                                    ha="center",
+                                    fontsize=10,
+                                    fontweight="bold",
+                                    fontfamily="Noto Sans",
+                                )
+                                ax.set_yticks([])
 
-                                # Añadir etiquetas de valores
-                                for i, value in enumerate(dz):
-                                    if value > 0:
+                                # Ajustar aspecto para visualización 3D
+                                ax.set_box_aspect([1, 0.6, 1])
+
+                                # Estilo de los planos
+                                for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+                                    axis.pane.set_edgecolor("black")
+                                    axis.pane.set_alpha(0.8)
+                                    axis.grid(True, linestyle="--", alpha=0.6, color="white")
+
+                                # Vista optimizada
+                                ax.view_init(elev=10, azim=-85)
+
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                            else:
+                                st.warning("No hay datos suficientes para mostrar la distribución de estado civil.")
+
+                        # Comunidad indígena y LGBT (valores absolutos)
+                        st.subheader("Pertenencia a Comunidad Indígena o LGBT")
+                        for var, title, color in zip(
+                            ["P2_ENCUESTA", "P3_ENCUESTA"],
+                            ["Comunidad Indígena", "Comunidad LGBT"],
+                            ["#611232", "#161a1d"],
+                        ):
+                            if var in data_estado.columns:
+                                counts = data_estado[var].value_counts()
+
+                                # Asegurar que hay datos para mostrar
+                                if not counts.empty:
+                                    # Crear figura 3D
+                                    fig = plt.figure(figsize=(12, 8))
+                                    ax = fig.add_subplot(111, projection="3d")
+
+                                    # Configurar posiciones y dimensiones de las barras
+                                    xpos = range(len(counts))
+                                    ypos = [0] * len(counts)
+                                    zpos = [0] * len(counts)
+                                    dx = [0.8] * len(counts)  # Ancho constante
+                                    dy = [0.8] * len(counts)  # Profundidad (bases cuadradas)
+                                    dz = counts.values  # Altura variable
+
+                                    # Crear barras 3D
+                                    bars = ax.bar3d(
+                                        xpos, ypos, zpos, dx, dy, dz, color=color, shade=True, alpha=0.8
+                                    )
+
+                                    # Añadir etiquetas de valores absolutos encima de cada barra
+                                    for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
                                         ax.text(
-                                            xpos[i] + offset + dx[i] / 2,
-                                            ypos[i] + dy[i] / 2,
-                                            zpos[i] + value + 1,
-                                            f"{int(value)}",
+                                            x + dx[i] / 2,
+                                            y + dy[i] / 2,
+                                            z + max(dz) * 0.05,
+                                            f"{int(z)}",
                                             ha="center",
                                             va="bottom",
-                                            fontsize=8,
+                                            color="black",
+                                            fontsize=10,
                                             fontweight="bold",
                                             fontfamily="Noto Sans",
-                                            color="black",
-                                            bbox=dict(
-                                                facecolor="white",
-                                                alpha=0.5,
-                                                edgecolor="none",
-                                            ),
+                                            bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
                                         )
 
-                        # Configuración del gráfico
-                        ax.set_title(
-                            f"Relación entre Sexo y Estado Civil en {estado_seleccionado}",
-                            fontweight="bold",
-                            fontsize=14,
-                            fontfamily="Noto Sans",
-                        )
-                        ax.set_zlabel(
-                            "Cantidad de personas",
-                            labelpad=30,
-                            fontfamily="Noto Sans",
-                            fontsize=12,
-                        )
-                        ax.set_ylabel("")
-                        ax.set_xlabel("")
-                        ax.set_xticks(xpos)
-                        ax.set_xticklabels(
-                            sexo_estado_civil_counts.columns,
-                            rotation=0,
-                            ha="center",
-                            fontsize=10,
-                            fontweight="bold",
-                            fontfamily="Noto Sans",
-                        )
-                        ax.set_yticks([])
+                                    # Configuración del gráfico
+                                    ax.set_title(
+                                        f"Distribución de {title} en {estado_seleccionado}",
+                                        fontweight="bold",
+                                        fontsize=14,
+                                        fontfamily="Noto Sans",
+                                    )
+                                    ax.set_zlabel("Cantidad", labelpad=30, fontfamily="Noto Sans", fontsize=12)
+                                    ax.set_ylabel("")
+                                    ax.set_xlabel("")
+                                    ax.set_xticks([i + dx[i] / 2 for i in xpos])
+                                    ax.set_xticklabels(
+                                        counts.index,
+                                        rotation=0,
+                                        ha="center",
+                                        fontsize=10,
+                                        fontweight="bold",
+                                        fontfamily="Noto Sans",
+                                    )
+                                    ax.set_yticks([])
 
-                        # Ajustar aspecto para visualización 3D
-                        ax.set_box_aspect([1, 0.6, 1])
+                                    # Ajustar aspecto para visualización 3D
+                                    ax.set_box_aspect([1, 0.6, 1])
 
-                        # Estilo de los planos
-                        for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
-                            axis.pane.set_edgecolor("black")
-                            axis.pane.set_alpha(0.8)
-                            axis.grid(True, linestyle="--", alpha=0.6, color="white")
+                                    # Estilo de los planos
+                                    for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+                                        axis.pane.set_edgecolor("black")
+                                        axis.pane.set_alpha(0.8)
+                                        axis.grid(True, linestyle="--", alpha=0.6, color="white")
 
-                        # Vista optimizada
-                        ax.view_init(elev=10, azim=-85)
+                                    # Vista optimizada
+                                    ax.view_init(elev=10, azim=-85)
 
-                        plt.tight_layout()
-                        show_plot(fig, f"Relación entre Sexo y Estado Civil en {estado_seleccionado}")
+                                    plt.tight_layout()
+                                    st.pyplot(fig)
+                                else:
+                                    st.warning(f"No hay datos suficientes para mostrar la distribución de {title}.")
+                            else:
+                                st.warning(f"La columna {var} no está disponible en los datos.")
 
-                    else:
-                        st.subheader("Distribución de Estado Civil")
-                        estado_civil_counts = data_estado["ESTADO_CIVIL"].value_counts()
+                        # Antecedentes de seguridad (valores absolutos)
+                        st.subheader("Antecedentes de Seguridad")
+                        if "P4_ENCUESTA" in data_estado.columns:
+                            seguridad_counts = data_estado["P4_ENCUESTA"].value_counts()
 
-                        # Crear figura 3D
-                        fig = plt.figure(figsize=(12, 8))
-                        ax = fig.add_subplot(111, projection="3d")
+                            # Asegurar que hay datos para mostrar
+                            if seguridad_counts.empty:
+                                # Si no hay datos, crear un DataFrame con ceros para las posibles categorías
+                                posibles_categorias = [
+                                    "SI", "NO", "NO ESPECIFICADO", "NO APLICA", "NO CONTESTÓ"
+                                ]
+                                seguridad_counts = pd.Series(
+                                    [0] * len(posibles_categorias), index=posibles_categorias
+                                )
+                                # Crear figura 3D
+                                fig = plt.figure(figsize=(12, 8))
+                                ax = fig.add_subplot(111, projection="3d")
 
-                        # Configurar colores
-                        colors = ["#1e5b4f", "#9b2247", "#e6d194"]
+                                # Configurar colores
+                                colors = ["#1e5b4f", "#9b2247", "#e6d194", "#611232", "#161a1d"]
 
-                        # Posiciones y dimensiones de las barras
-                        xpos = range(len(estado_civil_counts))
-                        ypos = [0] * len(estado_civil_counts)
-                        zpos = [0] * len(estado_civil_counts)
-                        dx = [0.8] * len(estado_civil_counts)  # Ancho constante
-                        dy = [0.8] * len(estado_civil_counts)  # Profundidad constante
-                        dz = estado_civil_counts.values  # Altura variable
+                                # Posiciones y dimensiones de las barras
+                                xpos = range(len(seguridad_counts))
+                                ypos = [0] * len(seguridad_counts)
+                                zpos = [0] * len(seguridad_counts)
+                                dx = [0.8] * len(seguridad_counts)  # Ancho constante
+                                dy = [0.8] * len(seguridad_counts)  # Profundidad constante
+                                dz = seguridad_counts.values  # Altura variable
 
-                        # Crear barras 3D
-                        bars = ax.bar3d(
-                            xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8
-                        )
+                                # Crear barras 3D
+                                bars = ax.bar3d(
+                                    xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8
+                                )
 
-                        # Añadir etiquetas de valores absolutos encima de cada barra
-                        for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
-                            ax.text(
-                                x + dx[i] / 2,
-                                y + dy[i] / 2,
-                                z + max(dz) * 0.05,
-                                f"{int(z)}",
-                                ha="center",
-                                va="bottom",
-                                color="black",
-                                fontsize=10,
-                                fontweight="bold",
-                                fontfamily="Noto Sans",
-                                bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
-                            )
+                                # Añadir etiquetas de valores absolutos encima de cada barra
+                                for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
+                                    ax.text(
+                                        x + dx[i] / 2,
+                                        y + dy[i] / 2,
+                                        z + max(dz) * 0.05,
+                                        f"{int(z)}",
+                                        ha="center",
+                                        va="bottom",
+                                        color="black",
+                                        fontsize=10,
+                                        fontweight="bold",
+                                        fontfamily="Noto Sans",
+                                        bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
+                                    )
 
-                        # Configuración del gráfico
-                        ax.set_title(
-                            f"Distribución de Estado Civil en {estado_seleccionado}",
-                            fontweight="bold",
-                            fontsize=14,
-                            fontfamily="Noto Sans",
-                        )
-                        ax.set_zlabel("Cantidad", labelpad=30, fontfamily="Noto Sans", fontsize=12)
-                        ax.set_ylabel("")
-                        ax.set_xlabel("")
-                        ax.set_xticks([i + dx[i] / 2 for i in xpos])
-                        ax.set_xticklabels(
-                            estado_civil_counts.index,
-                            rotation=0,
-                            ha="center",
-                            fontsize=10,
-                            fontweight="bold",
-                            fontfamily="Noto Sans",
-                        )
-                        ax.set_yticks([])
+                                # Configuración del gráfico
+                                ax.set_title(
+                                    f"Distribución de Antecedentes de Seguridad en {estado_seleccionado}",
+                                    fontweight="bold",
+                                    fontsize=14,
+                                    fontfamily="Noto Sans",
+                                )
+                                ax.set_zlabel("Cantidad", labelpad=30, fontfamily="Noto Sans", fontsize=12)
+                                ax.set_ylabel("")
+                                ax.set_xlabel("")
+                                ax.set_xticks([i + dx[i] / 2 for i in xpos])
+                                ax.set_xticklabels(
+                                    [
+                                    col if len(col) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', col))
+                                    for col in seguridad_counts.index
+                                    ],
+                                    rotation=0,
+                                    ha="center",
+                                    fontsize=7,
+                                    fontweight="bold",
+                                    fontfamily="Noto Sans",
+                                )
+                                ax.set_yticks([])
 
-                        # Ajustar aspecto para visualización 3D
-                        ax.set_box_aspect([1, 0.6, 1])
+                                # Ajustar aspecto para visualización 3D
+                                ax.set_box_aspect([1, 0.6, 1])
 
-                        # Estilo de los planos
-                        for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
-                            axis.pane.set_edgecolor("black")
-                            axis.pane.set_alpha(0.8)
-                            axis.grid(True, linestyle="--", alpha=0.6, color="white")
+                                # Estilo de los planos
+                                for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+                                    axis.pane.set_edgecolor("black")
+                                    axis.pane.set_alpha(0.8)
+                                    axis.grid(True, linestyle="--", alpha=0.6, color="white")
 
-                        # Vista optimizada
-                        ax.view_init(elev=10, azim=-85)
+                                # Vista optimizada
+                                ax.view_init(elev=10, azim=-85)
 
-                        plt.tight_layout()
-                        show_plot(fig, f"Distribución de Estado Civil en {estado_seleccionado}")
+                                plt.tight_layout()
+                                st.pyplot(fig)
+                            else:
+                                st.warning("No hay datos suficientes para mostrar los antecedentes de seguridad.")
+                        else:
+                            st.warning("La columna P4_ENCUESTA no está disponible en los datos.")
 
-                    # Comunidad indígena y LGBT (valores absolutos)
-                    st.subheader("Pertenencia a Comunidad Indígena o LGBT")
-                    for var, title, color in zip(
-                        ["P2_ENCUESTA", "P3_ENCUESTA"],
-                        ["Comunidad Indígena", "Comunidad LGBT"],
-                        ["#611232", "#161a1d"],
-                    ):
-                        counts = data_estado[var].value_counts()
-
-                        # Crear figura 3D
-                        fig = plt.figure(figsize=(12, 8))
-                        ax = fig.add_subplot(111, projection="3d")
-
-                        # Configurar posiciones y dimensiones de las barras
-                        xpos = range(len(counts))
-                        ypos = [0] * len(counts)
-                        zpos = [0] * len(counts)
-                        dx = [0.8] * len(counts)  # Ancho constante
-                        dy = [0.8] * len(counts)  # Profundidad (bases cuadradas)
-                        dz = counts.values  # Altura variable
-
-                        # Crear barras 3D
-                        bars = ax.bar3d(
-                            xpos, ypos, zpos, dx, dy, dz, color=color, shade=True, alpha=0.8
-                        )
-
-                        # Añadir etiquetas de valores absolutos encima de cada barra
-                        for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
-                            ax.text(
-                                x + dx[i] / 2,
-                                y + dy[i] / 2,
-                                z + max(dz) * 0.05,
-                                f"{int(z)}",
-                                ha="center",
-                                va="bottom",
-                                color="black",
-                                fontsize=10,
-                                fontweight="bold",
-                                fontfamily="Noto Sans",
-                                bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
-                            )
-
-                        # Configuración del gráfico
-                        ax.set_title(
-                            f"Distribución de {title} en {estado_seleccionado}",
-                            fontweight="bold",
-                            fontsize=14,
-                            fontfamily="Noto Sans",
-                        )
-                        ax.set_zlabel("Cantidad", labelpad=30, fontfamily="Noto Sans", fontsize=12)
-                        ax.set_ylabel("")
-                        ax.set_xlabel("")
-                        ax.set_xticks([i + dx[i] / 2 for i in xpos])
-                        ax.set_xticklabels(
-                            counts.index,
-                            rotation=0,
-                            ha="center",
-                            fontsize=10,
-                            fontweight="bold",
-                            fontfamily="Noto Sans",
-                        )
-                        ax.set_yticks([])
-
-                        # Ajustar aspecto para visualización 3D
-                        ax.set_box_aspect([1, 0.6, 1])
-
-                        # Estilo de los planos
-                        for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
-                            axis.pane.set_edgecolor("black")
-                            axis.pane.set_alpha(0.8)
-                            axis.grid(True, linestyle="--", alpha=0.6, color="white")
-
-                        # Vista optimizada
-                        ax.view_init(elev=10, azim=-85)
-
-                        plt.tight_layout()
-                        show_plot(fig, f"{title} en {estado_seleccionado}")
-
-                    # Antecedentes de seguridad (valores absolutos)
-                    st.subheader("Antecedentes de Seguridad")
-                    seguridad_counts = data_estado["P4_ENCUESTA"].value_counts()
-
-                    # Crear figura 3D
-                    fig = plt.figure(figsize=(12, 8))
-                    ax = fig.add_subplot(111, projection="3d")
-
-                    # Configurar colores
-                    colors = ["#1e5b4f", "#9b2247", "#e6d194", "#611232", "#161a1d"]
-
-                    # Posiciones y dimensiones de las barras
-                    xpos = range(len(seguridad_counts))
-                    ypos = [0] * len(seguridad_counts)
-                    zpos = [0] * len(seguridad_counts)
-                    dx = [0.8] * len(seguridad_counts)  # Ancho constante
-                    dy = [0.8] * len(seguridad_counts)  # Profundidad constante
-                    dz = seguridad_counts.values  # Altura variable
-
-                    # Crear barras 3D
-                    bars = ax.bar3d(
-                        xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8
+                else:
+                    st.warning(
+                        f"No se encontraron registros para el estado: {estado_seleccionado}"
                     )
-
-                    # Añadir etiquetas de valores absolutos encima de cada barra
-                    for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
-                        ax.text(
-                            x + dx[i] / 2,
-                            y + dy[i] / 2,
-                            z + max(dz) * 0.05,
-                            f"{int(z)}",
-                            ha="center",
-                            va="bottom",
-                            color="black",
-                            fontsize=10,
-                            fontweight="bold",
-                            fontfamily="Noto Sans",
-                            bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
-                        )
-
-                    # Configuración del gráfico
-                    ax.set_title(
-                        f"Distribución de Antecedentes de Seguridad en {estado_seleccionado}",
-                        fontweight="bold",
-                        fontsize=14,
-                        fontfamily="Noto Sans",
-                    )
-                    ax.set_zlabel("Cantidad", labelpad=30, fontfamily="Noto Sans", fontsize=12)
-                    ax.set_ylabel("")
-                    ax.set_xlabel("")
-                    ax.set_xticks([i + dx[i] / 2 for i in xpos])
-                    ax.set_xticklabels(
-                        [
-                        col if len(col) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', col))
-                        for col in seguridad_counts.index
-                        ],
-                        rotation=0,
-                        ha="center",
-                        fontsize=7,
-                        fontweight="bold",
-                        fontfamily="Noto Sans",
-                    )
-                    ax.set_yticks([])
-
-                    # Ajustar aspecto para visualización 3D
-                    ax.set_box_aspect([1, 0.6, 1])
-
-                    # Estilo de los planos
-                    for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
-                        axis.pane.set_edgecolor("black")
-                        axis.pane.set_alpha(0.8)
-                        axis.grid(True, linestyle="--", alpha=0.6, color="white")
-
-                    # Vista optimizada
-                    ax.view_init(elev=10, azim=-85)
-
-                    plt.tight_layout()
-                    show_plot(fig, f"Distribución de Antecedentes de Seguridad en {estado_seleccionado}")
-
-            else:
-                st.warning(
-                    f"No se encontraron registros para el estado: {estado_seleccionado}"
-                )
 
 else:
     st.info("Por favor, sube un archivo para comenzar el análisis.")
