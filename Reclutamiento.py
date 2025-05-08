@@ -976,7 +976,7 @@ if uploaded_file is not None:
                         bottom=bottom,
                         color=colors[j % len(colors)],
                         alpha=0.8,
-                        edgecolor="white",
+                        edgecolor="none",
                         linewidth=0.5,
                     )
 
