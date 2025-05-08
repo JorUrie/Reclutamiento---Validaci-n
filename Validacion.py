@@ -1,5 +1,3 @@
-import os
-os.system("requirements.txt")
 from matplotlib.patches import Patch
 import streamlit as st
 import pandas as pd
@@ -9,15 +7,13 @@ import re
 import io
 from PIL import Image as PILImage
 
-
 # Configuración de la página
 st.set_page_config(
-    layout="wide", page_title="Análisis de Validación", page_icon="📊"
+    layout="wide", page_title="Análisis de Reclutamiento", page_icon="📊"
 )
 
 # Título de la aplicación
-st.title("📊 Análisis de Datos de Validación")
-
+st.title("📊 Análisis de Datos de Reclutamiento")
 # Carga de archivo
 uploaded_file = st.file_uploader(
     "Sube tu archivo de datos (Excel o CSV)", type=["xlsx", "csv"]
@@ -55,6 +51,11 @@ if uploaded_file is not None:
     status_text.text("Procesando datos...")
     data = data.replace("?", np.nan)
 
+    # Eliminar duplicados, conservando el SEGUNDO registro (en lugar del primero)
+    data = data.drop_duplicates(subset=["CURP"], keep="last")
+    # Filtrar solo CURPs con 18+ caracteres (elimina toda la fila si no cumple)
+    data = data[data["CURP"].str.len() >= 18]
+
     # Extraer columnas
     usuario = data["USUARIO"]
     region = data["REGION"]
@@ -88,24 +89,37 @@ if uploaded_file is not None:
         "%d/%m/%Y"
     )  # %I:%M:%S %p <- Para agregar hora, minuto y segundo
 
-    # Obteniendo la fecha de nacimiento
+    # Obteniendo la fecha de nacimiento y comparando con la del CURP
     current_year = pd.Timestamp.now().year
     fechaNacimiento = pd.to_datetime(data["FECHA_NACIMIENTO"], errors="coerce")
     data["edad"] = current_year - fechaNacimiento.dt.year
 
+    # Extrayendo información de fecha del CURP
+    curp = data["CURP"]
+    year_curp = (
+        "19" + data["CURP"].str[4:5]
+    )  # Asumiendo que son personas nacidas en el siglo XX
+    month_curp = data["CURP"].str[6:7]  # Corregido: los meses están en posiciones 6-7
+    day_curp = data["CURP"].str[8:9]  # Corregido: los días están en posiciones 8-9
 
-    # Clasificación de emails
-    email_domains = usuario.str.extract(r"@(\w+)\.")[0]
-    data["email_classification"] = email_domains.apply(
-        lambda x: (
-            "gmail"
-            if "gmail" in str(x).lower()
-            else (
-                "outlook"
-                if "outlook" in str(x).lower()
-                else "hotmail" if "hotmail" in str(x).lower() else "otro"
-            )
-        )
+    # Pasando el DataFrame data a un archivo excel, para que posteriormente se descargue el archivo filtrado
+    data.to_excel("reclutamiento_data_filtrado.xlsx", index=False)
+
+    # Construyendo la fecha del CURP
+    fecha_curp = pd.to_datetime(
+        day_curp + "/" + month_curp + "/" + year_curp,
+        format="%d/%m/%Y",
+        errors="coerce",  # Manejar casos donde la fecha no sea válida
+    )
+    print(fecha_curp)
+    # Calculando edad basada en el CURP
+    edad_curp = current_year - fecha_curp.dt.year
+
+    # Comparando fechas y calculando edad final
+    data["edad_final"] = np.where(
+        fecha_curp.reset_index(drop=True) != fechaNacimiento.reset_index(drop=True),
+        edad_curp.reset_index(drop=True),
+        data["edad"],
     )
 
     progress_bar.progress(30)
@@ -123,16 +137,8 @@ if uploaded_file is not None:
         plt.close(fig)
 
     # Crear pestañas para organizar las gráficas
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        [
-            "Distribuciones",
-            "Análisis por Sexo",
-            "Tallas",
-            "Otros",
-            "Análisis por estado",
-            "Análisis por documento",
-            "Observaciones",
-        ]
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Distribuciones", "Análisis por Sexo", "Otros", "Análisis por estado"]
     )
     # -----------------------------------------------------------------------------------------------------------------------------------
     with tab1:
@@ -467,7 +473,7 @@ if uploaded_file is not None:
                 ha="center",
                 va="bottom",
                 color="black",
-                fontsize=4,
+                fontsize=3,
                 fontweight="bold",
                 rotation=0,
                 fontfamily="Noto Sans",
@@ -1147,7 +1153,7 @@ if uploaded_file is not None:
         st.subheader("Distribución de Masa Corporal por Sexo")
 
         # Masa corporal por sexo - Crear histogramas separados por sexo
-        for gender, color in zip(["MUJER", "HOMBRE"], ["#9b2247", "#1e5b4f"]):
+        for gender, color in zip(["MUJER", "HOMBRE"], ["#611232", "#002f2a"]):
             if gender in sexo.unique():
                 fig, ax = plt.subplots(figsize=(10, 6))
                 data_gender = masaCorporal[sexo == gender].dropna()
@@ -1339,57 +1345,7 @@ if uploaded_file is not None:
         show_plot(fig, "Relación entre Sexo y Estado Civil")
         # ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-
     with tab3:
-        st.header("Distribución de Tallas")
-
-        # Mostrar tablas
-        st.subheader("Distribución General de Tallas")
-
-        col7, col8 = st.columns(2)
-        with col7:
-            st.write("**Talla de Pantalón**")
-            st.dataframe(tallaPantalon.value_counts().reset_index(), hide_index=True)
-
-            st.write("**Talla de Camisola**")
-            st.dataframe(tallaCamisola.value_counts().reset_index(), hide_index=True)
-
-        with col8:
-            st.write("**Talla de Chamarra**")
-            st.dataframe(tallaChamarra.value_counts().reset_index(), hide_index=True)
-
-            st.write("**Talla de Calzado**")
-            st.dataframe(tallaCalzado.value_counts().reset_index(), hide_index=True)
-
-        # Tallas por sexo
-        st.subheader("Tallas por Sexo")
-
-        # Función para crear tabla de tallas por sexo
-        def create_size_table(size_data, size_column, title):
-            size_gender = pd.concat([size_data, sexo], axis=1)
-            size_gender.columns = [size_column, "Sexo"]
-            size_gender_counts = (
-                size_gender.groupby([size_column, "Sexo"])
-                .size()
-                .unstack(fill_value=0)
-                .reset_index()
-            )
-
-            st.write(f"**{title}**")
-            st.dataframe(size_gender_counts, hide_index=True)
-
-        create_size_table(
-            tallaPantalon, "Talla de Pantalón", "Talla de Pantalón por Sexo"
-        )
-        create_size_table(
-            tallaCamisola, "Talla de Camisola", "Talla de Camisola por Sexo"
-        )
-        create_size_table(
-            tallaChamarra, "Talla de Chamarra", "Talla de Chamarra por Sexo"
-        )
-        create_size_table(tallaCalzado, "Talla de Calzado", "Talla de Calzado por Sexo")
-
-    with tab4:
         st.header("Otras Distribuciones")
 
         # Habilidades tecnológicas en 3D
@@ -1554,7 +1510,7 @@ if uploaded_file is not None:
         ax.set_xticklabels( [
             col if len(col) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', col))
             for col in top_10_estadoResidencia.index
-            ], rotation=0, ha="center", fontsize=7, fontweight="bold", family="Noto Sans")
+            ], rotation=0, ha="center", fontsize=5, fontweight="bold", family="Noto Sans")
         ax.set_yticks([])
 
         # Ajustar aspecto para visualización 3D
@@ -1643,7 +1599,17 @@ if uploaded_file is not None:
         ax.set_ylabel("")
         ax.set_xlabel("")
         ax.set_xticks([i + 0.4 for i in xpos])
-        ax.set_xticklabels(encuesta_counts.index, rotation=0, ha="center", fontsize=5, fontweight="bold", family="Noto Sans")
+        ax.set_xticklabels(
+            [
+            label if len(label) <= 12 else "\n".join(re.findall(r'.{1,12}(?:\s+|$)', label))
+            for label in encuesta_counts.index
+            ],
+            rotation=0,
+            ha="center",
+            fontsize=5,
+            fontweight="bold",
+            family="Noto Sans"
+        )
         ax.set_yticks([])
 
         # Ajustar aspecto para visualización 3D
@@ -1789,7 +1755,15 @@ if uploaded_file is not None:
         ax.set_xlabel("")
         ax.set_xticks([i + dx[i] / 2 for i in xpos])
         ax.set_xticklabels(
-            seguridadAntecedentes_counts.index, rotation=45, ha="center", fontsize=3, fontweight="bold", family="Noto Sans", wrap=True
+            [
+            "\n".join(re.findall(r".{1,12}(?:\s+|$)", label))
+            for label in seguridadAntecedentes_counts.index
+            ],
+            rotation=0,
+            ha="center",
+            fontsize=3,
+            fontweight="bold",
+            family="Noto Sans",
         )
         ax.set_yticks([])
 
@@ -1887,15 +1861,15 @@ if uploaded_file is not None:
         show_plot(fig, "Puesto de Aplicación")
         # -------------------------------------------------------------------------------------------------------------
 
-        progress_bar.progress(100)
-        status_text.text("¡Análisis completado!")
-        st.success("El análisis se ha completado correctamente.")
+    progress_bar.progress(100)
+    status_text.text("¡Análisis completado!")
+    st.success("El análisis se ha completado correctamente.")
 
-        # Mostrar resumen de datos
-        st.sidebar.header("Resumen de Datos")
-        st.sidebar.write(f"Total de registros: {len(data)}")
+    # Mostrar resumen de datos
+    st.sidebar.header("Resumen de Datos")
+    st.sidebar.write(f"Total de registros: {len(data)}")
 
-    with tab5:
+    with tab4:
         st.header("Análisis por Estado")
 
         # Lista de estados disponibles
@@ -2009,7 +1983,7 @@ if uploaded_file is not None:
                         [f"{int(bin_edges[i])}" for i in range(len(hist_values))],
                         rotation=0,
                         ha="center",
-                        fontsize=6,
+                        fontsize=3,
                         fontweight="bold",
                         fontfamily="Noto Sans"
                     )
@@ -2032,7 +2006,7 @@ if uploaded_file is not None:
                                 f"{int(dz[i])}",
                                 ha="center",
                                 va="bottom",
-                                fontsize=9,
+                                fontsize=3,
                                 color="black",
                                 bbox=dict(facecolor="white", alpha=0.5),
                             )
@@ -2222,7 +2196,7 @@ if uploaded_file is not None:
                         ax = fig.add_subplot(111, projection="3d")
 
                         # Configurar colores
-                        color = ["#161a1d"]
+                        colors = ["#1e5b4f", "#9b2247", "#e6d194"]
 
                         # Posiciones y dimensiones de las barras
                         xpos = range(len(estado_civil_counts))
@@ -2234,7 +2208,7 @@ if uploaded_file is not None:
 
                         # Crear barras 3D
                         bars = ax.bar3d(
-                            xpos, ypos, zpos, dx, dy, dz, color=color, shade=True, alpha=0.8
+                            xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8
                         )
 
                         # Añadir etiquetas de valores absolutos encima de cada barra
@@ -2376,7 +2350,7 @@ if uploaded_file is not None:
                     ax = fig.add_subplot(111, projection="3d")
 
                     # Configurar colores
-                    colors = ["#a57f2c"]
+                    colors = ["#1e5b4f", "#9b2247", "#e6d194", "#611232", "#161a1d"]
 
                     # Posiciones y dimensiones de las barras
                     xpos = range(len(seguridad_counts))
@@ -2451,322 +2425,25 @@ if uploaded_file is not None:
                     f"No se encontraron registros para el estado: {estado_seleccionado}"
                 )
 
-    with tab6:
-        
-        st.subheader("Análisis de los registros")
-        observaciones = data["OBSERVACIONES"] if "OBSERVACIONES" in data.columns else pd.Series(dtype=str)
-        status = data["ESTATUS"] if "ESTATUS" in data.columns else pd.Series(dtype=str)
-        # Datos de estatus (usando el mismo cálculo anterior)
-        status_counts = status.value_counts()
-        total_status = status_counts.sum()
-        percentages_estatus = (status_counts / total_status) * 100
-
-        # Crear figura 3D
-        fig = plt.figure(figsize=(12, 10))
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Configuración de colores
-        colors = ["#9b2247", "#1e5b4f", "#e6d194"]
-
-        # Configurar posiciones y dimensiones
-        xpos = np.arange(len(status_counts))
-        ypos = np.zeros_like(xpos)
-        zpos = np.zeros_like(xpos)
-
-        # Configurar dimensiones de las barras
-        dx = 0.8 * np.ones_like(zpos)
-        dy = 0.5 * np.ones_like(zpos)
-        dz = status_counts.values
-
-        # Crear las barras 3D con colores individuales
-        bars = ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8)
-
-         # Agregar valores absolutos encima de cada barra
-        for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
-            ax.text(
-                x + dx[i]/2, 
-                y + dy[i]/2, 
-                z + max(dz)*0.05,
-                f"{int(z)}",
-                ha='center',
-                va='bottom',
-                color='black',
-                fontsize=7,
-                fontweight='bold',
-                bbox=dict(facecolor='white', alpha=0.5, edgecolor='none')  # Fondo para mejor legibilidad
-            )
-
-            
-        # Añadir etiquetas
-        ax.set_xticks(np.arange(len(status_counts)))
-        ax.set_xticklabels(status_counts.index, rotation=45 if any(len(str(x)) > 10 for x in status_counts.index) else 0)  
-        ax.set_yticks([])  # No necesitamos etiquetas en el eje Y
-        ax.set_zlabel('Cantidad de registros', labelpad=30, fontfamily="Noto Sans", fontsize=12)
-
-        # Añadir título y ajustar vista
-        ax.set_title('Distribución por Estatus', fontweight="bold", fontsize=14, fontfamily="Noto Sans")
-        ax.view_init(elev=10, azim=-85)  # Ángulo de visualización        
-
-        # Añadir cuadrícula para mejor referencia
-        ax.grid(True, linestyle='--', alpha=0.4)
-
-        plt.tight_layout()
-        show_plot(fig, "Distribución por Estatus")
-        #----------------------------------------------------------------------------------------------------------------------------
-
-        # Gráficas para columnas específicas relacionadas con estatus de documentos
-        columnas_estatus = [
-            "ACTA_NACIMIENTO_ESTATUS",
-            "COMPROBANTE_ESTUDIOS_ESTATUS",
-            "CARTAS_RECOMENDACION_ESTATUS",
-            "DECLARACION_ESTATUS",
-            "CARTILLA_MILITAR_ESTATUS",
-            "CERTIFICADO_MEDICO_ESTATUS",
-            "DOCUMENTO_OFICIAL_ESTATUS",
-            "COMPROBANTE_DOMICILIO_ESTATUS",
-            "CURP_DOCUMENTO_ESTATUS",
-            "CURRICULUM_ESTATUS",
-            "CONSTANCIA_INABILITACION_ESTATUS",
-            "CONSTANCIA_ANTECEDENTES_ESTATUS",
-            "CONSTANCIA_DEUDOR_ESTATUS",
-            "FOTOGRAFIA_ESTATUS",
-            "BAJA_VOLUNTARIA_ESTATUS",
-        ]
-
-        # Gráficas para columnas específicas relacionadas con estatus de documentos por sexo
-        st.subheader("Distribución de Estatus de Documentos por Sexo")
-
-        for columna in columnas_estatus:
-            if columna in data.columns:
-                # Reemplazar guiones bajos por espacios en el encabezado
-                columna_titulo = columna.replace("_", " ")
-            st.subheader(f"Distribución de {columna_titulo} por Sexo")
-
-            # Agrupar datos por sexo y columna
-            sexo_columna_counts = (
-                data.groupby(["SEXO", columna]).size().unstack(fill_value=0)
-            )
-            # Crear gráfica de barras apiladas
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sexo_columna_counts.T.plot(
-                kind="bar",
-                stacked=True,
-                color=["#9b2247", "#1e5b4f"],
-                ax=ax,
-            )
-
-            # Añadir etiquetas con valores absolutos dentro de las barras
-            for container in ax.containers:
-                for bar in container:
-                    height = bar.get_height()
-                    if height > 0:  # Solo mostrar etiquetas si el valor es mayor a 0
-                        ax.text(
-                            bar.get_x() + bar.get_width() / 2,
-                            bar.get_y() + height / 2,
-                            f"{int(height)}",
-                            ha="center",
-                            va="center",
-                            fontsize=8,
-                            color="white",
-                            bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'),
-                            fontfamily="Noto Sans",
-                        )
-
-            # Añadir la suma total en la parte superior de las barras
-            totals = sexo_columna_counts.sum(axis=0)
-            for i, total in enumerate(totals):
-                ax.text(
-                    i,
-                    total + max(totals) * 0.02,  # Pequeño margen por encima de la barra
-                    f"{int(total)}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=10,
-                    color="black",
-                    fontweight="bold",
-                    bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'),
-                    fontfamily="Noto Sans",
-                )
-
-            # Configurar el gráfico
-            ax.set_title(
-                f"Distribución de {columna_titulo} por Sexo",
-                pad=20,
-                fontsize=12,
-                fontweight="bold",
-            )
-            ax.set_ylabel("Cantidad de registros", fontsize=14, fontfamily="Noto Sans", labelpad=30)
-            ax.set_xlabel(columna_titulo, fontweight="bold", fontfamily="Noto Sans", fontsize=12)
-            ax.legend(title="Sexo", loc="upper right")
-            ax.grid(axis="y", linestyle="--", alpha=0.4)
-            plt.xticks(
-                rotation=(
-                    45
-                    if any(len(str(x)) > 10 for x in sexo_columna_counts.index)
-                    else 0
-                )
-            )
-            plt.tight_layout()
-
-            # Mostrar el gráfico
-            show_plot(fig, f"Distribución de {columna_titulo} por Sexo")
-
-    with tab7:
-        observaciones = data["OBSERVACIONES"] if "OBSERVACIONES" in data.columns else pd.Series(dtype=str)
-        status = data["ESTATUS"] if "ESTATUS" in data.columns else pd.Series(dtype=str)
-
-        # Clasificar observaciones (misma lógica anterior)
-        def classify_observaciones(value):
-            value = str(value).lower()
-            if re.search(r"completo", value):
-                return "Completo"
-            elif re.search(r"no cumple", value):
-                return "No cumple"
-            elif re.search(r"anexar|volver", value):
-                return "Falta documentación"
-            else:
-                return "Sin observaciones"
-
-        observaciones_classified = observaciones.apply(classify_observaciones)
-        counts_observaciones = observaciones_classified.value_counts()
-
-        # Crear figura 3D
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Configuración de colores
-        colors = ["#1e5b4f", "#9b2247", "#a57f2c", "#98989A"]
-        categories = counts_observaciones.index
-        values = counts_observaciones.values
-
-        # Configurar posiciones y dimensiones
-        xpos = np.arange(len(categories))
-        ypos = np.zeros_like(xpos)
-        zpos = np.zeros_like(xpos)
-
-        # Configurar dimensiones de las barras
-        dx = 0.8 * np.ones_like(zpos)
-        dy = 0.5 * np.ones_like(zpos)
-        dz = values
-
-        # Crear barras 3D con color vino (#611232) como en el original
-        bars = ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8)
-
-        # Añadir etiquetas de valores absolutos ENCIMA de cada barra
-        for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
-            ax.text(
-                x + dx[i]/2, 
-                y + dy[i]/2, 
-                z + max(dz)*0.05,  # Pequeño margen arriba de la barra
-                f"{int(z)}",
-                ha='center',
-                va='bottom',
-                color='black',
-                fontsize=7,
-                fontweight='bold', 
-                bbox=dict(facecolor='white', alpha=0.5, edgecolor='none')
-            )
-
-        # Añadir etiquetas
-        ax.set_xticks(np.arange(len(categories)))
-        ax.set_xticklabels(categories, rotation=0, ha="center", fontsize=5, fontweight="bold", fontfamily="Noto Sans")
-        ax.set_yticks([])  # No necesitamos etiquetas en el eje Y
-        ax.set_zlabel('Cantidad', labelpad=30, fontfamily="Noto Sans", fontsize=12)
-
-        # Añadir título y ajustar vista
-        ax.set_title('Distribución por Observaciones', fontweight="bold", fontsize=14, fontfamily="Noto Sans")
-        ax.view_init(elev=10, azim=-85)  # Ángulo de visualización
-
-        # Añadir cuadrícula para mejor referencia
-        ax.grid(True, linestyle='--', alpha=0.4)
-        ax.set_box_aspect([1, 1, 0.8])  # Proporciones del gráfico 3D
-
-        plt.tight_layout()        
-
-        show_plot(fig, "Distribución por Observaciones")
-        #------------------------------------------------------------------------------------------------------------------------------
-
-        # Clasificar estatus
-        def classify_status(value):
-            value = str(value).lower()
-            if re.search(r"no_cumple", value):
-                return "No cumple"
-            elif re.search(r"programado", value):
-                return "Programado"
-            elif re.search(r"validacion", value):
-                return "Validado"
-            else:
-                return "Sin validación"
-            # Clasificación de estatus (manteniendo la misma lógica)
-        status_classified = status.apply(classify_status)
-        counts_status = status_classified.value_counts()
-
-        # Crear figura 3D
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Configuración de colores personalizados
-        colors = ["#1e5b4f", "#9b2247", "#a57f2c"]
-        categories = counts_status.index
-        values = counts_status.values
-
-        # Configurar posiciones y dimensiones 3D
-        xpos = np.arange(len(categories))
-        ypos = np.zeros_like(xpos)
-        zpos = np.zeros_like(xpos)
-        dx = dy = 0.7 * np.ones_like(zpos)
-        dz = values
-
-        # Crear barras 3D con color vino (#611232) como en el original
-        bars = ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, shade=True, alpha=0.8)
-
-        # Añadir etiquetas de valores absolutos ENCIMA de cada barra
-        for i, (x, y, z) in enumerate(zip(xpos, ypos, dz)):
-            ax.text(
-            x + dx[i] / 2,
-            y + dy[i] / 2,
-            z + max(dz) * 0.05,  # Pequeño margen arriba de la barra
-            f"{int(z)}",
-            ha="center",
-            va="bottom",
-            color="black",
-            fontsize=7,
-            fontweight="bold",
-            bbox=dict(facecolor="white", alpha=0.5, edgecolor="none"),
-            )
-
-        # Configuración de ejes y etiquetas
-        ax.set_xticks(xpos)
-        ax.set_xticklabels(
-            categories,
-            rotation=0 if any(len(str(x)) > 10 for x in categories) else 0,
-            ha="right",
-            fontsize=8,
-            fontweight="bold",
-            fontfamily="Noto Sans",
-        )
-        ax.set_yticks([])  # Ocultar eje Y ya que no lo necesitamos
-        ax.set_zlabel("Cantidad", fontsize=10, labelpad=30, fontfamily="Noto Sans")
-        ax.set_title(
-            "Distribución por Estatus de Avance",
-            fontsize=12,
-            pad=20,
-            fontweight="bold",
-            fontfamily="Noto Sans",
-        )
-
-        # Configuración de vista 3D
-        ax.view_init(elev=10, azim=-85)  # Ángulo de visualización óptimo
-        ax.grid(True, linestyle=":", alpha=0.5)  # Cuadrícula sutil
-
-        # Ajustar diseño y mostrar
-        plt.tight_layout()
-        show_plot(fig, "Distribución por Estatus de Avance")
-
-
 else:
     st.info("Por favor, sube un archivo para comenzar el análisis.")
 
 # Créditos
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Desarrollado por:**  \nEquipo de Análisis de Datos")
+
+# Haciendo un botón en la barra lateral de Streamlit para descargar el archivo creado
+with st.sidebar:
+    try:
+        with open("reclutamiento_data_filtrado.xlsx", "rb") as file:
+            st.download_button(
+                label="Descargar archivo filtrado",
+                data=file.read(),
+                file_name="reclutamiento_data_filtrado.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_button",
+            )
+    except FileNotFoundError:
+        st.error(
+            "El archivo 'reclutamiento_data_filtrado.xlsx' no se encontró. Asegúrate de que se haya generado correctamente."
+        )
