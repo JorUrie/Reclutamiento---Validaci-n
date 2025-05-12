@@ -16,7 +16,7 @@ st.set_page_config(
 st.title("📊 Análisis de Datos de Reclutamiento")
 # Carga de archivo
 uploaded_file = st.file_uploader(
-    "Sube tu archivo de datos (Excel o CSV)", type=["xlsx", "csv"]
+    "Sube tu archivo de datos (Excel)", type=["xlsx", "csv"]
 )
 
 
